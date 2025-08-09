@@ -1,0 +1,60 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node
+node_modules/
+.pnpm-store/
+.npm/
+.bun/
+.next/
+.next-cache/
+.vercel/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+.mypy_cache/
+
+dist/
+build/
+
+# Editors/IDEs
+.vscode/
+.idea/
+*.iml
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Misc
+.cache/
+.tmp/
+.temp/
+*.tmp
+*.bak
+*.orig
+
+# OS-specific
+ehthumbs.db
+Icon?
+
+# Local tooling
+.git-credentials
