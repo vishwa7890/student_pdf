@@ -82,7 +82,7 @@ app.add_middleware(
     max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-# Load environment variables from .env file (handled in config section below as well)
+# Load environment variables from .env file (single load)
 load_dotenv()
 
 # API key check is performed in the generic provider config section below
@@ -110,9 +110,13 @@ if not os.access(UPLOAD_DIR, os.W_OK):
 sentence_transformer = None
 ocr_reader = None
 chat_document_mapping = {}
-faiss_indexes = {}
+# Simple LRU cache for FAISS indexes to reduce disk I/O
+_FAISS_CACHE_MAX = 8
+_faiss_cache: Dict[str, Dict[str, Any]] = {}
 document_metadata = {}
 chat_model_selection: Dict[str, str] = {}
+# Lightweight in-memory chat history per chat_id
+chat_history: Dict[str, List[Dict[str, str]]] = {}
 
 # Pydantic models
 class ChatRequest(BaseModel):
@@ -124,6 +128,19 @@ class SummaryRequest(BaseModel):
     url: str
     summary_type: str = "executive"
     model: Optional[str] = None
+
+# Worksheet processing models
+class WorksheetProcessRequest(BaseModel):
+    raw_text: Optional[str] = None
+    filename: Optional[str] = None  # from uploads/
+    chat_id: Optional[str] = None
+    model: Optional[str] = None
+
+class WorksheetAnswer(BaseModel):
+    qid: str
+    question_text: str
+    answer_text: str
+    subparts: Optional[List[Dict[str, str]]] = None
 
 def initialize_models():
     """Initialize the sentence transformer and OCR reader with device support"""
@@ -174,6 +191,172 @@ def clean_text(text: str) -> str:
     
     # Strip and return
     return text.strip()
+
+# ---------------- Worksheet Utilities ----------------
+def _parse_questions(text: str) -> List[Dict[str, Any]]:
+    """Parse numbered questions (Q1, Q2, ...) and lettered subparts (A, B, a), etc.).
+    Returns a list of dicts: {id, text, subparts: [{id, text}]} preserving order.
+    """
+    if not text:
+        return []
+    # Normalize line endings
+    t = text.replace('\r\n', '\n').replace('\r', '\n')
+    # Heuristic: ensure Q prefixes are detectable
+    # Pattern for questions starting markers like: Q1, Q1), 1., 1), Question 1
+    q_pattern = re.compile(r'(?mi)^(?:question\s*)?(q\s*)?(\d+)[\)\.:\-\s]*')
+    lines = t.split('\n')
+    items = []
+    current = None
+    buffer = []
+
+    def flush_current():
+        nonlocal current, buffer
+        if current is not None:
+            body = '\n'.join(buffer).strip()
+            current['raw_body'] = body
+            # Extract subparts
+            subs = []
+            # Subparts patterns: A., A), (a), a., a)
+            sub_pat = re.compile(r'(?mi)^(?:\(?([A-Za-z])\)?)[\)\.:\-\s]+')
+            sub_lines = body.split('\n')
+            cur_sub = None
+            cur_buf = []
+            def flush_sub():
+                nonlocal cur_sub, cur_buf
+                if cur_sub is not None:
+                    subs.append({
+                        'id': cur_sub,
+                        'text': '\n'.join(cur_buf).strip() or '[incomplete text]'
+                    })
+            for sl in sub_lines:
+                m = sub_pat.match(sl.strip())
+                if m and len(m.group(1)) == 1:
+                    # new subpart
+                    flush_sub()
+                    cur_sub = m.group(1).upper()
+                    cur_buf = [sub_pat.sub('', sl, count=1)]
+                else:
+                    if cur_sub is None:
+                        # No subparts yet; accumulate into main question text
+                        cur_buf.append(sl)
+                        cur_sub = '_'  # pseudo id for whole body before any subparts
+                    else:
+                        cur_buf.append(sl)
+            flush_sub()
+            # If only pseudo subpart '_' exists, treat as no subparts
+            if len(subs) == 1 and subs[0]['id'] == '_':
+                subs = []
+                current['text'] = subs and '' or (body.strip() or '[incomplete text]')
+            else:
+                # main question text is the preface before first lettered subpart
+                preface = ''
+                if subs:
+                    # try to reconstruct preface as everything in body before first lettered subpart
+                    first_id = subs[0]['id']
+                    # Not perfect; we rely on LLM to restate fully as needed
+                current['text'] = (body.strip() or '[incomplete text]')
+                current['subparts'] = subs
+            items.append(current)
+        current = None
+        buffer = []
+
+    for ln in lines:
+        m = q_pattern.match(ln.strip())
+        if m:
+            # new question begins
+            flush_current()
+            qnum = m.group(2)
+            qid = f"Q{qnum}"
+            remainder = q_pattern.sub('', ln, count=1).strip()
+            current = {'id': qid, 'header': ln.strip(), 'text': '', 'subparts': []}
+            if remainder:
+                buffer.append(remainder)
+        else:
+            if current is None:
+                # preface text before first question; ignore but keep if useful
+                continue
+            buffer.append(ln)
+    flush_current()
+    return items
+
+def _build_worksheet_prompt(questions: List[Dict[str, Any]], original_text_sample: str) -> str:
+    """Constructs the grading/answering instruction prompt with strict format."""
+    sample = (original_text_sample[:1200] + '...') if len(original_text_sample) > 1200 else original_text_sample
+    parts = [
+        "You are an expert tutor. I will give you parsed questions from an extracted worksheet.",
+        "Your job:",
+        "1. Extract each question in order (Q1, Q2, Q3, etc.), including sub-questions (A, B, C...).",
+        "2. Always restate the full question text before giving an answer.",
+        "   - If part of a question is missing or unclear, mark it as [incomplete text] but still try to answer using context.",
+        "3. Provide a clear, step-by-step answer for each question:",
+        "   - Math → show calculations.",
+        "   - Science/History → explain simply and factually.",
+        "   - Opinion/Why → give a sample thoughtful response.",
+        "4. Output format:",
+        "   Q#: [Question text]",
+        "   A#: [Answer]",
+        "5. Do not skip or say ‘no question provided.’ Instead, echo the available text and handle it as best as possible.",
+        "\nFollow these strictly. Now answer the following questions:"
+    ]
+    for q in questions:
+        parts.append(f"\n{q['id']}: {q.get('text') or '[incomplete text]'}")
+        for sp in (q.get('subparts') or []):
+            parts.append(f"{q['id']}{sp['id']}: {sp.get('text') or '[incomplete text]'}")
+    parts.append("\nUse the exact Q#/A# format.")
+    parts.append("If a figure or diagram is referenced but not present, note it explicitly and describe expected content.")
+    parts.append("\nOriginal extracted sample (for context, do not retype fully):\n" + sample)
+    return "\n".join(parts)
+
+async def _answer_worksheet(questions: List[Dict[str, Any]], original_text: str, model_override: Optional[str] = None) -> str:
+    """Call the LLM with a single consolidated prompt to generate the full answer key."""
+    prompt = _build_worksheet_prompt(questions, original_text)
+    return await query_llm(prompt, model=model_override)
+
+@app.post("/worksheet/process/")
+async def process_worksheet(req: WorksheetProcessRequest):
+    """Process worksheet from raw text or filename in uploads/ and return a structured answer key."""
+    try:
+        if not (req.raw_text or req.filename):
+            raise HTTPException(status_code=400, detail="Provide either raw_text or filename")
+
+        # Get text: from raw_text or from uploaded PDF by filename
+        if req.raw_text and req.raw_text.strip():
+            text = req.raw_text
+        else:
+            # Validate filename path
+            fname = os.path.basename(req.filename)
+            file_path = os.path.join(UPLOAD_DIR, fname)
+            if not os.path.exists(file_path):
+                raise HTTPException(status_code=404, detail="File not found in uploads/")
+            # Extract text from PDF
+            text = extract_text_from_pdf(file_path)
+
+        # Clean minimally for parsing but keep content
+        parsed = _parse_questions(text)
+        if not parsed:
+            # Fallback single question if nothing parsed
+            parsed = [{
+                'id': 'Q1',
+                'text': (text.strip()[:1500] or '[incomplete text]'),
+                'subparts': []
+            }]
+
+        # Generate answers via LLM
+        answer_key_text = await _answer_worksheet(parsed, text, model_override=req.model)
+
+        # Return both structured and free-form answer key
+        return {
+            'status': 'success',
+            'questions': parsed,
+            'answer_key': answer_key_text,
+            'chat_id': req.chat_id,
+            'timestamp': datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing worksheet: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing worksheet: {str(e)}")
 
 def improved_semantic_text_chunking(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
     """
@@ -304,8 +487,8 @@ def extract_text_from_pdf(file_path: str) -> str:
     
     raise HTTPException(status_code=400, detail="Failed to extract text from PDF using all available methods")
 
-def create_embeddings(texts: List[str]) -> np.ndarray:
-    """Create embeddings for text chunks with device support"""
+def create_embeddings(texts: List[str], batch_size: int = 32, normalize: bool = True) -> np.ndarray:
+    """Create embeddings for text chunks with device support, batching, and optional L2 normalization"""
     try:
         if not texts:
             return np.array([])
@@ -313,18 +496,24 @@ def create_embeddings(texts: List[str]) -> np.ndarray:
         # Convert texts to embeddings on the specified device
         with torch.no_grad():
             embeddings = sentence_transformer.encode(
-                texts, 
+                texts,
                 convert_to_tensor=True,
                 device=device,
-                show_progress_bar=True
+                show_progress_bar=True,
+                batch_size=batch_size
             )
             # Convert to numpy array and ensure it's float32 for FAISS
             if isinstance(embeddings, torch.Tensor):
                 embeddings = embeddings.cpu().numpy().astype('float32')
-                
+            else:
+                embeddings = np.asarray(embeddings, dtype=np.float32)
+
         if len(embeddings.shape) == 1:
             embeddings = embeddings.reshape(1, -1)
-            
+        
+        if normalize:
+            faiss.normalize_L2(embeddings)
+        
         return embeddings
     except Exception as e:
         logger.error(f"Error creating embeddings: {str(e)}", exc_info=True)
@@ -365,15 +554,43 @@ def create_faiss_index(embeddings: np.ndarray) -> faiss.Index:
             logger.error(f"Embeddings dtype: {embeddings.dtype}")
         raise
 
+def _faiss_cache_put(chat_id: str, index, metadata: Dict[str, Any]):
+    """Insert/refresh an item in the simple LRU cache."""
+    try:
+        _faiss_cache[chat_id] = {
+            'index': index,
+            'metadata': metadata,
+            'ts': time.time()
+        }
+        # Enforce size
+        if len(_faiss_cache) > _FAISS_CACHE_MAX:
+            # Evict least-recently used
+            oldest = min(_faiss_cache.items(), key=lambda kv: kv[1]['ts'])[0]
+            _faiss_cache.pop(oldest, None)
+    except Exception:
+        pass
+
+def _faiss_cache_get(chat_id: str):
+    item = _faiss_cache.get(chat_id)
+    if not item:
+        return None
+    item['ts'] = time.time()
+    return item['index'], item['metadata']
+
+def _faiss_cache_delete(chat_id: str):
+    _faiss_cache.pop(chat_id, None)
+
 def save_index_and_metadata(chat_id: str, index, chunks: List[Dict], filename: str):
-    """Save FAISS index and metadata to disk in the FAISS_INDEX_DIR"""
+    """Save FAISS index and metadata atomically to disk and update cache."""
     try:
         # Ensure the directory exists
         os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
         
         # Save FAISS index
         index_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_index.faiss")
-        faiss.write_index(index, index_path)
+        tmp_index_path = index_path + ".tmp"
+        faiss.write_index(index, tmp_index_path)
+        os.replace(tmp_index_path, index_path)
         
         # Save metadata
         metadata = {
@@ -383,18 +600,26 @@ def save_index_and_metadata(chat_id: str, index, chunks: List[Dict], filename: s
         }
         
         metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
-        with open(metadata_path, 'wb') as f:
+        tmp_meta_path = metadata_path + ".tmp"
+        with open(tmp_meta_path, 'wb') as f:
             pickle.dump(metadata, f)
+        os.replace(tmp_meta_path, metadata_path)
             
         logger.info(f"Saved index to {index_path} and metadata to {metadata_path}")
+        # Update cache
+        _faiss_cache_put(chat_id, index, metadata)
         return True
     except Exception as e:
         logger.error(f"Error saving index and metadata: {str(e)}")
         return False
 
 def load_index_and_metadata(chat_id: str):
-    """Load FAISS index and metadata from disk"""
+    """Load FAISS index and metadata from cache or disk"""
     try:
+        # Try cache first
+        cached = _faiss_cache_get(chat_id)
+        if cached:
+            return cached
         # Construct paths
         index_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_index.faiss")
         metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
@@ -412,13 +637,14 @@ def load_index_and_metadata(chat_id: str):
             metadata = pickle.load(f)
             
         logger.info(f"Loaded index from {index_path} and metadata from {metadata_path}")
+        _faiss_cache_put(chat_id, index, metadata)
         return index, metadata
     except Exception as e:
         logger.error(f"Error loading index and metadata: {str(e)}", exc_info=True)
         return None, None
 
 def delete_index_and_metadata(chat_id: str):
-    """Delete FAISS index and metadata files from the FAISS_INDEX_DIR"""
+    """Delete FAISS index and metadata files from disk and evict cache"""
     try:
         index_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_index.faiss")
         metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
@@ -437,7 +663,8 @@ def delete_index_and_metadata(chat_id: str):
             
         if not deleted:
             logger.warning(f"No index or metadata found for chat_id: {chat_id}")
-            
+        # Evict cache regardless
+        _faiss_cache_delete(chat_id)
         return deleted
     except Exception as e:
         logger.error(f"Error deleting index and metadata: {str(e)}")
@@ -453,11 +680,13 @@ def retrieve_relevant_chunks(query: str, chat_id: str, top_k: int = 5) -> List[D
             return []
         
         # Create query embedding
-        query_embedding = sentence_transformer.encode([query], convert_to_numpy=True)
-        faiss.normalize_L2(query_embedding)
+        query_embedding = create_embeddings([query], batch_size=1, normalize=True)
         
         # Search for similar chunks
-        scores, indices = index.search(query_embedding, min(top_k, len(metadata['chunks'])))
+        k = min(max(1, top_k), index.ntotal, len(metadata.get('chunks', [])))
+        if k <= 0:
+            return []
+        scores, indices = index.search(query_embedding, k)
         
         # Prepare results
         results = []
@@ -476,14 +705,11 @@ def retrieve_relevant_chunks(query: str, chat_id: str, top_k: int = 5) -> List[D
         logger.error(f"Error retrieving relevant chunks: {e}")
         return []
 
-# Load environment variables
-load_dotenv()
-
 # Provider configuration (generic, no vendor names).
 # Primary provider configuration
 PRIMARY_API_KEY = os.getenv('PRIMARY_API_KEY')
 if not PRIMARY_API_KEY:
-    raise ValueError("PRIMARY_API_KEY environment variable not set")
+    logger.warning("PRIMARY_API_KEY is not set at startup; LLM calls will return a helpful error until configured.")
 
 PRIMARY_API_URL = os.getenv('PRIMARY_API_URL')
 PRIMARY_MODEL = os.getenv('PRIMARY_MODEL')
@@ -743,7 +969,7 @@ async def query_llm(prompt: str, retry_count: int = 0, model: Optional[str] = No
             return await query_llm(prompt, retry_count + 1, model=model)
         return "I'm having trouble processing your request. Please try again later."
 
-async def summarize_with_rag(query: str, chat_id: str, model: Optional[str] = None) -> str:
+async def summarize_with_rag(query: str, chat_id: str, model: Optional[str] = None, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
     """Generate accurate and well-structured answers using RAG with OpenRouter
     
     Args:
@@ -948,15 +1174,6 @@ async def summarize_with_rag(query: str, chat_id: str, model: Optional[str] = No
         # Retrieve relevant chunks with increased top_k for better context
         relevant_chunks = retrieve_relevant_chunks(query, chat_id, top_k=7 if not is_math_query else 10)
         
-        if not relevant_chunks and not is_math_query:
-            return (
-                "## I couldn't find enough relevant information to answer your question.\n\n"
-                "### Suggestions:\n"
-                "- Try rephrasing your question\n"
-                "- Be more specific with your query\n"
-                "- Check if the document contains the information you're looking for"
-            )
-        
         # Create structured context with clear citations
         context_parts = []
         for i, chunk in enumerate(relevant_chunks, 1):
@@ -966,7 +1183,21 @@ async def summarize_with_rag(query: str, chat_id: str, model: Optional[str] = No
                 f"```\n{chunk['chunk'].strip()}\n```"
             )
         
-        context = "\n\n".join(context_parts)
+        context = "\n\n".join(context_parts) if context_parts else "(No specific document context found. Rely on general knowledge and prior conversation.)"
+
+        # Prepare recent conversation string (last 6 messages)
+        conv_str = ""
+        try:
+            if conversation_history:
+                recent = conversation_history[-6:]
+                lines = []
+                for turn in recent:
+                    role = turn.get("role", "user") if isinstance(turn, dict) else "user"
+                    content = turn.get("content", str(turn)) if isinstance(turn, dict) else str(turn)
+                    lines.append(f"{role}: {content}")
+                conv_str = "\n".join(lines)
+        except Exception:
+            conv_str = ""
         
         # Enhanced prompt with specialized instructions for math problems
         if is_math_query:
@@ -981,6 +1212,9 @@ You are an expert mathematics tutor and vector analyst. Provide clear, step-by-s
 5. **Explain each step** in simple terms.
 6. **Use proper mathematical notation** with LaTeX when needed.
 7. **Check your work** for accuracy.
+
+## Conversation (recent):
+{conv_str}
 
 ## Context (if available):
 {context}
@@ -1010,6 +1244,9 @@ You are an expert science tutor analyzing an ecology experiment about mangroves 
    - Support claims with evidence from the data
    - Acknowledge limitations of the study
    - Suggest possible follow-up experiments
+
+## Conversation (recent):
+{conv_str}
 
 ## Context:
 {context}
@@ -1519,8 +1756,17 @@ async def chat_with_pdf(request: ChatRequest):
                 detail="Message cannot be empty"
             )
             
+        # Get and update recent conversation history (store as role/content)
+        history = chat_history.get(request.chat_id, [])
+        history.append({"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()})
+        chat_history[request.chat_id] = history
+        
         # Generate response using RAG (with optional per-request model override)
-        response = await summarize_with_rag(request.message, request.chat_id, model=request.model)
+        response = await summarize_with_rag(request.message, request.chat_id, model=request.model, conversation_history=history)
+        
+        # Store assistant reply
+        history.append({"role": "assistant", "content": response, "timestamp": datetime.now().isoformat()})
+        chat_history[request.chat_id] = history
         
         return {
             "response": response,
@@ -1620,4 +1866,4 @@ Provide a structured summary with clear sections in markdown format.
 # The startup event is now handled by the lifespan context manager above
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8030)
+    uvicorn.run(app, host="localhost", port=8020)

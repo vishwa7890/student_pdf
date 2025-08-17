@@ -437,34 +437,284 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
-            padding: 1rem 1.25rem;
+            padding: 1.25rem 1.5rem;
             border-radius: 12px;
             max-width: 85%;
-            line-height: 1.6;
+            line-height: 1.7;
             position: relative;
             animation: messageAppear 0.3s ease-out;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-            font-size: 0.95rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            font-size: 1rem;
             background-color: white;
+            border: 1px solid var(--gray-100);
+            transition: all 0.2s ease;
+            margin-bottom: 1.25rem;
+        }
+        
+        .message:hover {
+            border-color: var(--gray-200);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
         /* Rendered content readability */
-        .message-content { line-height: 1.7; font-size: 0.97rem; }
-        .message-content h1, .message-content h2, .message-content h3 { margin: 0.6em 0 0.4em; line-height: 1.25; }
-        .message-content h1 { font-size: 1.25rem; }
-        .message-content h2 { font-size: 1.15rem; }
-        .message-content h3 { font-size: 1.05rem; }
-        .message-content p { margin: 0.5em 0; }
-        .message-content ul, .message-content ol { padding-left: 1.25rem; margin: 0.5em 0; }
-        .message-content code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
-        .message-content pre { background: #0b1020; color: #e2e8f0; padding: 10px 12px; border-radius: 8px; overflow: auto; }
+        .message-content { 
+            line-height: 1.8; 
+            font-size: 1.02rem;
+            color: var(--gray-800);
+        }
+        
+        .message-content h1, 
+        .message-content h2, 
+        .message-content h3, 
+        .message-content h4, 
+        .message-content h5, 
+        .message-content h6 { 
+            margin: 1.2em 0 0.6em; 
+            line-height: 1.3;
+            color: var(--gray-900);
+            font-weight: 600;
+        }
+        
+        .message-content h1 { 
+            font-size: 1.6rem; 
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .message-content h2 { 
+            font-size: 1.4rem;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        .message-content h3 { 
+            font-size: 1.2rem;
+        }
+        .message-content h4 { font-size: 1.1rem; }
+        .message-content h5 { font-size: 1rem; }
+        .message-content h6 { 
+            font-size: 0.95rem;
+            color: var(--gray-700);
+        }
+        
+        .message-content p { 
+            margin: 1em 0;
+            line-height: 1.8;
+        }
+        
+        .message-content ul, 
+        .message-content ol { 
+            padding-left: 1.5rem; 
+            margin: 1em 0;
+        }
+        
+        .message-content li {
+            margin: 0.5em 0;
+        }
+        
+        .message-content code { 
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+            background: var(--gray-50); 
+            padding: 0.2em 0.4em; 
+            border-radius: 4px; 
+            font-size: 0.95em;
+            color: #d63384;
+        }
+        
+        .message-content pre { 
+            background: #1e1e1e; 
+            color: #e2e8f0; 
+            padding: 1.25rem; 
+            border-radius: 8px; 
+            overflow: auto;
+            margin: 1.2em 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            position: relative;
+        }
+        
+        /* Code block styles */
+        .code-block {
+            position: relative;
+            margin: 1.5em 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: #1e1e1e;
+        }
+        
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: #252526;
+            border-bottom: 1px solid #404040;
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+            font-size: 0.85rem;
+            color: #9e9e9e;
+        }
+        
+        .language {
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .copy-code {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            border-radius: 4px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .copy-code:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .copy-code i {
+            font-size: 0.9em;
+        }
+        
+        .message-content pre {
+            margin: 0 !important;
+            border-radius: 0 !important;
+            padding: 1.25rem !important;
+            background: #1e1e1e !important;
+        }
+        
+        .message-content pre code {
+            background: transparent !important;
+            color: inherit;
+            padding: 0;
+            font-size: 0.95em;
+            line-height: 1.6;
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+        }
+        
+        /* Inline code */
+        .message-content code.inline-code {
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Andale Mono', monospace;
+            background: var(--gray-100);
+            color: #d63384;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+            border: 1px solid var(--gray-200);
+        }
+        
+        /* Code block line numbers */
+        pre[class*="language-"].line-numbers {
+            position: relative;
+            padding-left: 3.8em;
+            counter-reset: linenumber;
+        }
+        
+        pre[class*="language-"].line-numbers > code {
+            position: relative;
+            white-space: inherit;
+        }
+        
+        .line-numbers .line-numbers-rows {
+            position: absolute;
+            pointer-events: none;
+            top: 0;
+            font-size: 100%;
+            left: -3.8em;
+            width: 3em;
+            letter-spacing: -1px;
+            border-right: 1px solid #404040;
+            user-select: none;
+            padding: 1.25rem 0;
+        }
+        
+        .line-numbers-rows > span {
+            display: block;
+            counter-increment: linenumber;
+        }
+        
+        .line-numbers-rows > span:before {
+            content: counter(linenumber);
+            color: #6e7681;
+            display: block;
+            padding-right: 0.8em;
+            text-align: right;
+        }
+        
+        .message-content blockquote {
+            border-left: 4px solid var(--primary);
+            margin: 1.2em 0;
+            padding: 0.5em 0 0.5em 1em;
+            color: var(--gray-600);
+            font-style: italic;
+            background-color: var(--gray-50);
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .message-content hr {
+            border: none;
+            border-top: 1px solid var(--gray-200);
+            margin: 2em 0;
+        }
 
         /* Table styling */
-        .message-content table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.95rem; }
-        .message-content th, .message-content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; }
-        .message-content thead th { background: var(--gray-100); color: var(--gray-700); }
-        .message-content tbody tr:nth-child(odd) { background: #fafafa; }
-        .message-content tbody tr:hover { background: #f5faff; }
+        .message-content .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin: 1.2em 0;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .message-content table { 
+            width: 100%; 
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 0;
+            font-size: 0.95rem;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .message-content th, 
+        .message-content td { 
+            border: 1px solid var(--gray-200); 
+            padding: 12px 16px; 
+            text-align: left; 
+            vertical-align: top;
+        }
+        
+        .message-content thead th { 
+            background: var(--primary); 
+            color: white;
+            font-weight: 600;
+            border-color: var(--primary);
+            position: sticky;
+            top: 0;
+        }
+        
+        .message-content tbody tr:nth-child(even) { 
+            background: var(--gray-50); 
+        }
+        
+        .message-content tbody tr:hover { 
+            background: var(--primary-light);
+        }
+        
+        .message-content tbody tr:last-child td:first-child {
+            border-bottom-left-radius: 8px;
+        }
+        
+        .message-content tbody tr:last-child td:last-child {
+            border-bottom-right-radius: 8px;
+        }
         
         .message i {
             font-size: 1.1rem;
@@ -475,86 +725,141 @@
         .message-header {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.25rem;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        
+        .message-role-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .message-avatar i {
+            font-size: 0.9rem;
+        }
+        
+        .message-role {
+            font-weight: 600;
+            color: var(--gray-800);
+            font-size: 0.95rem;
+        }
+        
+        .message-header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .message-timestamp {
+            color: var(--gray-500);
+            font-size: 0.8rem;
+            white-space: nowrap;
         }
         
         .message-actions {
             display: flex;
+            align-items: center;
             gap: 0.5rem;
-            margin-left: auto;
-            opacity: 0.5;  /* Make it slightly visible by default */
-            transition: opacity 0.2s;
+            opacity: 0;
+            transition: opacity 0.2s ease;
         }
         
         .message:hover .message-actions {
-            opacity: 1;  /* Fully visible on hover */
+            opacity: 1;
         }
         
-        .view-pdf-btn, .edit-btn, .save-btn, .cancel-btn {
+        .message-actions button {
             background: none;
             border: none;
-            color: var(--gray-400);
+            color: var(--gray-500);
             cursor: pointer;
-            padding: 0.25rem;
+            width: 28px;
+            height: 28px;
             border-radius: 4px;
-            transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            transition: all 0.2s ease;
         }
         
-        .view-pdf-btn:hover, .edit-btn:hover, .save-btn:hover, .cancel-btn:hover {
+        .message-actions button:hover {
+            background: var(--gray-100);
             color: var(--primary);
-            background-color: var(--gray-100);
         }
         
-        .save-btn, .cancel-btn {
-            display: none;
+        .message-actions button:active {
+            transform: scale(0.95);
         }
         
-        .message[data-is-editing="true"] .edit-btn {
-            display: none;
+        .message-actions button.active {
+            color: var(--primary);
         }
         
-        .message[data-is-editing="true"] .save-btn,
-        .message[data-is-editing="true"] .cancel-btn {
+        .message-actions .thumbs-up.active {
+            color: var(--success);
+        }
+        
+        .message-actions .thumbs-down.active {
+            color: var(--error);
+        }
+        
+        .message-actions button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* Typing indicator */
+        .typing-indicator {
             display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 0;
+            gap: 0.5rem;
         }
         
-        .message-content {
-            flex: 1;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--gray-400);
+            animation: typingAnimation 1.4s infinite ease-in-out both;
         }
         
-        .message-content[contenteditable="true"] {
-            outline: 2px solid var(--primary);
-            padding: 0.75rem;
-            min-height: 60px;
-            background-color: #f8fafc;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-            border-radius: 6px;
-            margin-top: 0.5rem;
+        .typing-indicator span:nth-child(1) {
+            animation-delay: -0.32s;
         }
         
-        .message-content p:first-child {
-            margin-top: 0;
+        .typing-indicator span:nth-child(2) {
+            animation-delay: -0.16s;
         }
         
-        .message-content p:last-child {
-            margin-bottom: 0;
-        }
-        
-        .user-message {
-            align-self: flex-end;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-            color: white;
-            border-bottom-right-radius: 4px;
-            margin-left: 10%;
-            border-top-right-radius: 4px;
+        @keyframes typingAnimation {
+            0%, 80%, 100% { 
+                transform: scale(0.6);
+                opacity: 0.5;
+            }
+            40% { 
+                transform: scale(1);
+                opacity: 1;
+            }
         }
         
         .bot-message {
@@ -569,6 +874,27 @@
         
         .bot-message i {
             color: var(--primary);
+        }
+        
+        .user-message {
+            margin-left: auto;
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .user-message .message-role,
+        .user-message .message-timestamp {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+        
+        .user-message .message-actions button {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .user-message .message-actions button:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
         }
         
         .system-message {
@@ -876,8 +1202,8 @@
     </div>
 
     <script>
-        // Configure API base URL
-        const API_BASE = window.location.origin;
+        // Configure API base URL (overridable via localStorage key 'apiBase')
+        const API_BASE = (localStorage.getItem('apiBase') || window.location.origin).replace(/\/+$/, '');
         
         // Debug function
         function debugLog(message, type = 'info', data = null) {
@@ -910,7 +1236,7 @@
         
         // Initialize UI state
         if (userInput) userInput.disabled = !chatId;
-        if (sendButton) sendButton.disabled = !chatId;
+        if (sendButton) sendButton.disabled = !chatId || (userInput && userInput.value.trim().length === 0);
         
         // Test connection on load
         async function testConnection() {
@@ -959,6 +1285,12 @@
         if (userInput) {
             userInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') sendMessage();
+            });
+            // Enable/disable send button based on input content and session state
+            userInput.addEventListener('input', () => {
+                if (sendButton) {
+                    sendButton.disabled = !chatId || isProcessing || userInput.value.trim().length === 0;
+                }
             });
         }
 
@@ -1066,7 +1398,7 @@
                 showStatus('Uploading and processing PDF...', 'info', tempStatusId);
                 
                 // Send the file to the server
-                const response = await fetch('/upload', {
+                const response = await fetch(`${API_BASE}/upload/`, {
                     method: 'POST',
                     body: formData
                 });
@@ -1183,7 +1515,7 @@
                     e.stopPropagation();
                     const fname = listItem.dataset.filename;
                     if (fname) {
-                        window.open(`/get_pdf/${encodeURIComponent(fname)}`, '_blank');
+                        window.open(`${API_BASE}/get_pdf/${encodeURIComponent(fname)}`, '_blank');
                     } else {
                         showStatus('No PDF file is currently loaded', 'error');
                     }
@@ -1201,7 +1533,7 @@
                     const confirmDelete = confirm(`Delete ${fname}? This will remove the PDF and its index.`);
                     if (!confirmDelete) return;
                     try {
-                        const res = await fetch(`/delete_pdf/${encodeURIComponent(fname)}`, { method: 'DELETE' });
+                        const res = await fetch(`${API_BASE}/delete_pdf/${encodeURIComponent(fname)}`, { method: 'DELETE' });
                         if (!res.ok) {
                             const txt = await res.text();
                             throw new Error(txt || 'Failed to delete file');
@@ -1296,7 +1628,7 @@
             });
         }
 
-        function addMessage(text, type = 'assistant') {
+        async function addMessage(text, type = 'assistant') {
             const messagesContainer = document.getElementById('chatMessages');
             if (!messagesContainer) {
                 console.error('Chat messages container not found');
@@ -1306,6 +1638,10 @@
             const messageDiv = document.createElement('div');
             messageDiv.dataset.originalText = text || '';
             messageDiv.dataset.isEditing = 'false';
+            
+            // Generate a unique ID for this message
+            const messageId = 'msg-' + Date.now();
+            messageDiv.id = messageId;
             
             // Check for no content response
             const noContentPhrases = [
@@ -1321,23 +1657,43 @@
                 'no data about'
             ];
             
-            const hasNoContent = noContentPhrases.some(phrase => 
-                text && text.toLowerCase().includes(phrase)
+            const hasNoContent = text && noContentPhrases.some(phrase => 
+                text.toLowerCase().includes(phrase)
             );
+            
+            // Format timestamp
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
             // Set appropriate class based on message type
             if (type === 'assistant' || type === 'bot') {
                 messageDiv.className = 'message bot-message';
+                
                 if (hasNoContent) {
                     // Show a more user-friendly message when no content is found
                     messageDiv.innerHTML = `
                         <div class="message-header">
-                            <i class="fas fa-robot"></i>
-                            <div class="message-actions">
-                                <button class="view-pdf-btn" title="View PDF"><i class="fas fa-file-pdf"></i></button>
-                                <button class="edit-btn" title="Edit response"><i class="fas fa-edit"></i></button>
-                                <button class="save-btn" style="display: none;" title="Save changes"><i class="fas fa-check"></i></button>
-                                <button class="cancel-btn" style="display: none;" title="Cancel"><i class="fas fa-times"></i></button>
+                            <div class="message-role-container">
+                                <div class="message-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <span class="message-role">AI Assistant</span>
+                            </div>
+                            <div class="message-header-right">
+                                <span class="message-timestamp">${timestamp}</span>
+                                <div class="message-actions">
+                                    <button class="copy-message" title="Copy to clipboard">
+                                        <i class="far fa-copy"></i>
+                                    </button>
+                                    <button class="regenerate-message" title="Regenerate response">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="thumbs-up" title="Good response">
+                                        <i class="far fa-thumbs-up"></i>
+                                    </button>
+                                    <button class="thumbs-down" title="Bad response">
+                                        <i class="far fa-thumbs-down"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="message-content">
@@ -1345,43 +1701,124 @@
                             <p>Try asking about something else or rephrasing your question.</p>
                         </div>`;
                 } else {
+                    // Format the message content with a loading indicator
                     messageDiv.innerHTML = `
                         <div class="message-header">
-                            <i class="fas fa-robot"></i>
-                            <div class="message-actions">
-                                <button class="view-pdf-btn" title="View PDF"><i class="fas fa-file-pdf"></i></button>
-                                <button class="edit-btn" title="Edit response"><i class="fas fa-edit"></i></button>
-                                <button class="save-btn" style="display: none;" title="Save changes"><i class="fas fa-check"></i></button>
-                                <button class="cancel-btn" style="display: none;" title="Cancel"><i class="fas fa-times"></i></button>
+                            <div class="message-role-container">
+                                <div class="message-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <span class="message-role">AI Assistant</span>
+                            </div>
+                            <div class="message-header-right">
+                                <span class="message-timestamp">${timestamp}</span>
+                                <div class="message-actions">
+                                    <button class="copy-message" title="Copy to clipboard">
+                                        <i class="far fa-copy"></i>
+                                    </button>
+                                    <button class="regenerate-message" title="Regenerate response">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="thumbs-up" title="Good response">
+                                        <i class="far fa-thumbs-up"></i>
+                                    </button>
+                                    <button class="thumbs-down" title="Bad response">
+                                        <i class="far fa-thumbs-down"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="message-content">${formatMarkdown(text || '')}</div>`;
+                        <div class="message-content">
+                            <div class="typing-indicator">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>`;
+                    
+                    // Format the markdown content
+                    if (text) {
+                        try {
+                            const formattedContent = await formatMarkdown(text);
+                            const contentDiv = messageDiv.querySelector('.message-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML = formattedContent;
+                                
+                                // Initialize Prism for syntax highlighting
+                                if (window.Prism) {
+                                    Prism.highlightAllUnder(messageDiv);
+                                }
+                                
+                                // Setup code block hover effects
+                                setupCodeBlockHover(messageDiv);
+                            }
+                        } catch (error) {
+                            console.error('Error formatting message:', error);
+                            const contentDiv = messageDiv.querySelector('.message-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML = text;
+                            }
+                        }
+                    }
                 }
                 
-                // Setup edit handlers for bot messages
-                const contentDiv = messageDiv.querySelector('.message-content');
-                setupMessageEditHandlers(messageDiv, contentDiv);
+                // Add event listeners for message actions
+                setupMessageActions(messageDiv, text);
                 
             } else if (type === 'user') {
                 messageDiv.className = 'message user-message';
                 messageDiv.innerHTML = `
                     <div class="message-header">
-                        <i class="fas fa-user"></i>
+                        <div class="message-role-container">
+                            <div class="message-avatar">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <span class="message-role">You</span>
+                        </div>
+                        <div class="message-header-right">
+                            <span class="message-timestamp">${timestamp}</span>
+                            <div class="message-actions">
+                                <button class="copy-message" title="Copy to clipboard">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="message-content">${text || ''}</div>`;
+                
+                // Add copy functionality to user messages
+                const copyButton = messageDiv.querySelector('.copy-message');
+                if (copyButton) {
+                    copyButton.addEventListener('click', () => {
+                        navigator.clipboard.writeText(text);
+                        const icon = copyButton.querySelector('i');
+                        const originalIcon = icon.className;
+                        icon.className = 'fas fa-check';
+                        copyButton.title = 'Copied!';
+                        setTimeout(() => {
+                            icon.className = originalIcon;
+                            copyButton.title = 'Copy to clipboard';
+                        }, 2000);
+                    });
+                }
             } else {
+                // System message
                 messageDiv.className = 'message system-message';
                 messageDiv.innerHTML = `
                     <div class="message-header">
-                        <i class="fas fa-info-circle"></i>
+                        <div class="message-role-container">
+                            <div class="message-avatar">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <span class="message-role">System</span>
+                        </div>
+                        <span class="message-timestamp">${timestamp}</span>
                     </div>
                     <div class="message-content">${text || ''}</div>`;
             }
             
+            // Add to container and scroll to bottom
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            // Return the created message element in case we need to reference it later
             return messageDiv;
         }
 
@@ -1422,7 +1859,7 @@
                 
                 const modelSelect = document.getElementById('modelSelect');
                 const selectedModel = modelSelect ? modelSelect.value : (localStorage.getItem('selectedModel') || undefined);
-                const response = await fetch('/chat/', {
+                const response = await fetch(`${API_BASE}/chat/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1466,7 +1903,7 @@
                 
                 isProcessing = false;
                 if (userInput) userInput.disabled = false;
-                if (sendButton) sendButton.disabled = false;
+                if (sendButton) sendButton.disabled = (userInput ? userInput.value.trim().length === 0 : false);
                 if (userInput) userInput.focus();
             }
         }
@@ -1503,82 +1940,232 @@
             }
         }
 
-        function formatMarkdown(text) {
-            if (!text) return '';
-
-            // Preserve code blocks first
-            const codeBlocks = [];
-            text = text.replace(/```([\s\S]*?)```/g, (m, p1) => {
-                codeBlocks.push(p1);
-                return `@@CODEBLOCK_${codeBlocks.length - 1}@@`;
+        // Add Prism.js for syntax highlighting
+        const loadPrism = () => {
+            if (window.Prism) return Promise.resolve();
+            
+            return new Promise((resolve) => {
+                const link = document.createElement('link');
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js';
+                script.onload = () => {
+                    // Load additional language support
+                    const langs = ['markup', 'css', 'javascript', 'python', 'java', 'cpp', 'csharp', 'php', 'ruby', 'go', 'rust', 'swift', 'typescript', 'json', 'bash', 'sql'];
+                    const promises = langs.map(lang => {
+                        return new Promise((resolveLang) => {
+                            const langScript = document.createElement('script');
+                            langScript.src = `https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-${lang}.min.js`;
+                            langScript.onload = resolveLang;
+                            document.head.appendChild(langScript);
+                        });
+                    });
+                    
+                    Promise.all(promises).then(resolve);
+                };
+                document.head.appendChild(script);
             });
-
-            // Escape basic HTML to avoid injection
-            const escapeHtml = (s) => s
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;');
-            text = escapeHtml(text);
-
-            // Headings
-            text = text
-                .replace(/^###\s+(.*)$/gmi, '<h3>$1</h3>')
-                .replace(/^##\s+(.*)$/gmi, '<h2>$1</h2>')
-                .replace(/^#\s+(.*)$/gmi, '<h1>$1</h1>');
-
-            // Bold/italic/inline code
-            text = text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>');
-
-            // Lists
-            // Unordered
-            text = text.replace(/(^|\n)(?:- |\* )(.*(?:\n(?:- |\* ).+)*)/g, (m) => {
-                const items = m.trim().split(/\n/).map(li => li.replace(/^(?:- |\* )/, ''));
-                return `\n<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
-            });
-            // Ordered
-            text = text.replace(/(^|\n)(?:\d+\. )(.*(?:\n(?:\d+\. ).+)*)/g, (m) => {
-                const items = m.trim().split(/\n/).map(li => li.replace(/^\d+\.\s+/, ''));
-                return `\n<ol>${items.map(i => `<li>${i}</li>`).join('')}</ol>`;
-            });
-
-            // Tables: lines with pipes into table
-            const lines = text.split(/\n/);
-            let out = [];
-            let i = 0;
-            while (i < lines.length) {
-                if (lines[i].includes('|')) {
-                    const block = [];
-                    while (i < lines.length && lines[i].includes('|')) {
-                        block.push(lines[i]);
-                        i++;
-                    }
-                    // Build HTML table
-                    const rows = block.map(l => l.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim()));
-                    if (rows.length >= 2) {
-                        const header = rows[0];
-                        const alignRow = rows[1].every(c => /^:?-{3,}:?$/.test(c));
-                        const bodyRows = alignRow ? rows.slice(2) : rows.slice(1);
-                        let tableHtml = '<table><thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>' + bodyRows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') + '</tbody></table>';
-                        out.push(tableHtml);
-                    } else {
-                        out.push(block.join('\n'));
-                    }
-                } else {
-                    out.push(lines[i]);
-                    i++;
-                }
+        };
+        
+        // Initialize Prism when the page loads
+        loadPrism();
+        
+        // Helper function to escape HTML
+        const escapeHtml = (html) => {
+            const div = document.createElement('div');
+            div.textContent = html;
+            return div.innerHTML;
+        };
+        
+        // Helper to detect language from code block markers
+        const detectLanguage = (code) => {
+            const match = code.match(/^\s*```(\w+)?\n([\s\S]*?)\n```\s*$/);
+            if (match) {
+                return {
+                    lang: match[1] || 'text',
+                    code: match[2]
+                };
             }
-            text = out.join('\n');
+            return { lang: 'text', code };
+        };
 
-            // Paragraphs: convert double newlines to paragraphs
-            text = text.split(/\n{2,}/).map(p => /^<\/?(h\d|ul|ol|table|pre|blockquote)/.test(p.trim()) ? p : `<p>${p.replace(/\n/g, '<br>')}</p>`).join('\n');
-
-            // Restore code blocks
-            text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (m, idx) => `<pre><code>${codeBlocks[idx]}</code></pre>`);
-
+        async function formatMarkdown(text) {
+            if (!text) return '';
+            
+            // Process code blocks with language detection
+            const codeBlocks = [];
+            text = text.replace(/```(\w*)\n([\s\S]*?)\n```/g, (match, lang, code) => {
+                const id = codeBlocks.length;
+                codeBlocks.push({ code, lang: lang || 'text' });
+                return `@@CODEBLOCK_${id}@@`;
+            });
+            
+            // Escape HTML to prevent XSS
+            text = escapeHtml(text);
+            
+            // Headings with optional closing #s and balanced # count
+            text = text
+                .replace(/^#{1,6}\s+(.*?)(?:\s+#*)?$/gm, (match, content) => {
+                    const level = Math.min(6, Math.max(1, (match.match(/^#+/)[0].length)));
+                    return `<h${level}>${content.trim()}</h${level}>`;
+                });
+            
+            // Inline formatting
+            text = text
+                // Bold and italic (***text***)
+                .replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
+                // Bold (**text**)
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                // Italic (*text* or _text_)
+                .replace(/(?:^|[^*_])\*([^*]+)\*(?:[^*_]|$)/g, ' <em>$1</em> ')
+                .replace(/(?:^|[^_])_([^_]+)_(?:[^_]|$)/g, ' <em>$1</em> ')
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+                // Strikethrough (~~text~~)
+                .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+                // Underline (__text__)
+                .replace(/__([^_]+)__/g, '<u>$1</u>');
+            
+            // Blockquotes
+            text = text.replace(/^>\s+(.*)$/gm, (match, content) => 
+                `<blockquote>${content.trim()}</blockquote>`
+            );
+            
+            // Horizontal rules
+            text = text.replace(/^[-*_]{3,}$/gm, '<hr>');
+            
+            // Lists (ordered and unordered)
+            // Process lists in reverse order to handle nested lists correctly
+            const listTypes = [
+                { regex: /^(\s*)(\d+)\.\s+(.*)$/gm, tag: 'ol' },
+                { regex: /^(\s*)[-*+]\s+(.*)$/gm, tag: 'ul' }
+            ];
+            
+            for (const { regex, tag } of listTypes) {
+                text = text.replace(regex, (match, indent, bullet, content) => {
+                    const level = Math.floor(indent.length / 2);
+                    const padding = '  '.repeat(level);
+                    return `${padding}<${tag}><li>${content}</li></${tag}>`;
+                });
+                
+                // Clean up nested list tags
+                text = text.replace(new RegExp(`</${tag}>\\s*<${tag}>`, 'g', ''));
+            }
+            
+            // Tables with alignment support
+            text = text.replace(/\|(.+)\|\n\|([-:]+\|)+\n((?:\|.*\|\n?)+)/g, (match, header, align, rows) => {
+                // Process alignment
+                const aligns = align.split('|').filter(Boolean).map(a => {
+                    a = a.trim();
+                    if (/^:[-=]+:$/.test(a)) return 'center';
+                    if (a.endsWith(':')) return 'right';
+                    if (a.startsWith(':')) return 'left';
+                    return 'left';
+                });
+                
+                // Process header
+                const headers = header.split('|').map(h => h.trim());
+                let table = '<div class="table-container"><table>\n<thead>\n<tr>\n';
+                
+                headers.forEach((h, i) => {
+                    if (h === '') return;
+                    const alignment = aligns[i] || 'left';
+                    table += `  <th style="text-align: ${alignment}">${h}</th>\n`;
+                });
+                
+                table += '</tr>\n</thead>\n<tbody>\n';
+                
+                // Process rows
+                const rowLines = rows.trim().split('\n');
+                rowLines.forEach(row => {
+                    const cells = row.split('|').map(c => c.trim());
+                    table += '<tr>\n';
+                    
+                    cells.forEach((cell, i) => {
+                        if (i === 0 || i === cells.length - 1) return; // Skip empty cells at start/end
+                        const alignment = aligns[i-1] || 'left';
+                        table += `  <td style="text-align: ${alignment}">${cell}</td>\n`;
+                    });
+                    
+                    table += '</tr>\n';
+                });
+                
+                table += '</tbody>\n</table></div>\n';
+                return table;
+            });
+            
+            // Simple tables (without header alignment)
+            text = text.replace(/\|(.+)\|\n((?:\|.+\|\n?)+)/g, (match, header, rows) => {
+                const headers = header.split('|').map(h => h.trim());
+                let table = '<div class="table-container"><table>\n<thead>\n<tr>\n';
+                
+                headers.forEach(h => {
+                    if (h === '') return;
+                    table += `  <th>${h}</th>\n`;
+                });
+                
+                table += '</tr>\n</thead>\n<tbody>\n';
+                
+                // Process rows
+                const rowLines = rows.trim().split('\n');
+                rowLines.forEach(row => {
+                    const cells = row.split('|').map(c => c.trim());
+                    table += '<tr>\n';
+                    
+                    cells.forEach((cell, i) => {
+                        if (i === 0 || i === cells.length - 1) return; // Skip empty cells at start/end
+                        table += `  <td>${cell}</td>\n`;
+                    });
+                    
+                    table += '</tr>\n';
+                });
+                
+                table += '</tbody>\n</table></div>\n';
+                return table;
+            });
+            
+            // Links and images
+            text = text
+                .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="markdown-image">')
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            
+            // Process paragraphs (handle multiple newlines)
+            text = text.split(/\n{2,}/)
+                .map(paragraph => {
+                    if (/^<\/?(h\d|ul|ol|li|table|thead|tbody|tr|td|th|div|pre|blockquote|hr)/i.test(paragraph.trim())) {
+                        return paragraph;
+                    }
+                    return paragraph.trim() ? `<p>${paragraph.replace(/\n/g, '<br>')}</p>` : '';
+                })
+                .join('\n\n');
+            
+            // Add line breaks for single newlines that aren't in code blocks or tables
+            text = text.replace(/([^\n])\n([^\n])/g, '$1<br>$2');
+            
+            // Restore code blocks with syntax highlighting
+            text = text.replace(/@@CODEBLOCK_(\d+)@@/g, (m, idx) => {
+                const { code, lang } = codeBlocks[idx];
+                const language = lang && lang.trim() ? lang.trim() : 'text';
+                const highlighted = window.Prism ? 
+                    Prism.highlight(code, Prism.languages[language] || Prism.languages.text, language) : 
+                    escapeHtml(code);
+                    
+                return `<div class="code-block">
+                    <div class="code-header">
+                        <span class="language">${language}</span>
+                        <button class="copy-code" onclick="navigator.clipboard.writeText('${code.replace(/\n/g, '\\n').replace(/'/g, "\\'")}');
+                            this.innerHTML = '<i class=\'fas fa-check\'></i> Copied!';
+                            setTimeout(() => { this.innerHTML = '<i class=\'far fa-copy\'></i> Copy'; }, 2000);">
+                            <i class="far fa-copy"></i> Copy
+                        </button>
+                    </div>
+                    <pre class="language-${language}"><code class="language-${language}">${highlighted}</code></pre>
+                </div>`;
+            });
+            
             return text;
         }
 
@@ -1609,6 +2196,176 @@
             } else {
                 addMessage('system', '⚠️ Could not connect to backend. Please ensure the server is running at ' + API_BASE);
             }
+        }
+        
+        /**
+         * Setup message action buttons (copy, regenerate, feedback)
+         * @param {HTMLElement} messageDiv - The message container element
+         * @param {string} content - The original message content
+         */
+        function setupMessageActions(messageDiv, content) {
+            // Copy button
+            const copyButton = messageDiv.querySelector('.copy-message');
+            if (copyButton) {
+                copyButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(content);
+                    const icon = copyButton.querySelector('i');
+                    const originalIcon = icon.className;
+                    icon.className = 'fas fa-check';
+                    copyButton.title = 'Copied!';
+                    setTimeout(() => {
+                        icon.className = originalIcon;
+                        copyButton.title = 'Copy to clipboard';
+                    }, 2000);
+                });
+            }
+
+            // Regenerate button
+            const regenerateButton = messageDiv.querySelector('.regenerate-message');
+            if (regenerateButton) {
+                regenerateButton.addEventListener('click', async () => {
+                    // Show loading state
+                    const originalHTML = regenerateButton.innerHTML;
+                    regenerateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    regenerateButton.disabled = true;
+                    
+                    try {
+                        // Here you would call your API to regenerate the response
+                        // For now, we'll just simulate a delay and update the message
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        
+                        // Update the message content with a simulated regenerated response
+                        const newContent = await simulateRegeneratedResponse(content);
+                        const formattedContent = await formatMarkdown(newContent);
+                        
+                        // Update the message content
+                        const contentDiv = messageDiv.querySelector('.message-content');
+                        if (contentDiv) {
+                            contentDiv.innerHTML = formattedContent;
+                            
+                            // Update timestamp
+                            const timestampSpan = messageDiv.querySelector('.message-timestamp');
+                            if (timestampSpan) {
+                                const newTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                timestampSpan.textContent = `Updated ${newTimestamp}`;
+                            }
+                            
+                            // Re-initialize Prism for syntax highlighting
+                            if (window.Prism) {
+                                Prism.highlightAllUnder(messageDiv);
+                            }
+                            
+                            // Re-setup code block hover effects
+                            setupCodeBlockHover(messageDiv);
+                        }
+                    } catch (error) {
+                        console.error('Error regenerating response:', error);
+                    } finally {
+                        // Restore button state
+                        regenerateButton.innerHTML = originalHTML;
+                        regenerateButton.disabled = false;
+                    }
+                });
+            }
+            
+            // Feedback buttons (thumbs up/down)
+            const thumbsUp = messageDiv.querySelector('.thumbs-up');
+            const thumbsDown = messageDiv.querySelector('.thumbs-down');
+            
+            const handleFeedback = (isPositive) => {
+                // Remove active state from both buttons
+                if (thumbsUp) thumbsUp.classList.remove('active');
+                if (thumbsDown) thumbsDown.classList.remove('active');
+                
+                // Set active state on clicked button
+                const clickedButton = isPositive ? thumbsUp : thumbsDown;
+                if (clickedButton) {
+                    clickedButton.classList.add('active');
+                    clickedButton.title = isPositive ? 'Thanks for your feedback!' : 'We appreciate your feedback';
+                    
+                    // Here you would typically send this feedback to your backend
+                    console.log(`User ${isPositive ? 'liked' : 'disliked'} the response`);
+                    
+                    // Disable both buttons after feedback
+                    if (thumbsUp) thumbsUp.disabled = true;
+                    if (thumbsDown) thumbsDown.disabled = true;
+                }
+            };
+            
+            if (thumbsUp) {
+                thumbsUp.addEventListener('click', () => handleFeedback(true));
+            }
+            
+            if (thumbsDown) {
+                thumbsDown.addEventListener('click', () => handleFeedback(false));
+            }
+        }
+        
+        /**
+         * Add hover effect to code blocks with copy functionality
+         * @param {HTMLElement} container - The container element to search for code blocks
+         */
+        function setupCodeBlockHover(container) {
+            container.querySelectorAll('pre:not(.code-block)').forEach(pre => {
+                // Skip if already has a copy button
+                if (pre.querySelector('.copy-code')) return;
+                
+                pre.style.position = 'relative';
+                
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-code';
+                copyButton.innerHTML = '<i class="far fa-copy"></i> Copy';
+                copyButton.style.position = 'absolute';
+                copyButton.style.top = '8px';
+                copyButton.style.right = '8px';
+                copyButton.style.opacity = '0';
+                copyButton.style.transition = 'opacity 0.2s';
+                
+                pre.appendChild(copyButton);
+                
+                pre.addEventListener('mouseenter', () => {
+                    copyButton.style.opacity = '1';
+                });
+                
+                pre.addEventListener('mouseleave', () => {
+                    if (!copyButton.classList.contains('copied')) {
+                        copyButton.style.opacity = '0';
+                    }
+                });
+                
+                copyButton.addEventListener('click', () => {
+                    const code = pre.querySelector('code')?.textContent || '';
+                    navigator.clipboard.writeText(code);
+                    
+                    const icon = copyButton.querySelector('i');
+                    if (icon) {
+                        const originalIcon = icon.className;
+                        icon.className = 'fas fa-check';
+                        copyButton.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                        copyButton.classList.add('copied');
+                        
+                        setTimeout(() => {
+                            icon.className = originalIcon;
+                            copyButton.innerHTML = '<i class="far fa-copy"></i> Copy';
+                            copyButton.classList.remove('copied');
+                            copyButton.style.opacity = '0';
+                        }, 2000);
+                    }
+                });
+            });
+        }
+        
+        /**
+         * Simulate a regenerated response (for demo purposes)
+         * @param {string} original - The original message content
+         * @returns {Promise<string>} A simulated regenerated response
+         */
+        async function simulateRegeneratedResponse(original) {
+            // In a real app, this would be an API call to your backend
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Simple modification to show something changed
+            return original + '\n\n*This response has been regenerated with additional context and clarity.*';
         }
         
         // Initialize the app when the page loads
