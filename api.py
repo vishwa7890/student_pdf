@@ -110,6 +110,8 @@ if not os.access(UPLOAD_DIR, os.W_OK):
 sentence_transformer = None
 ocr_reader = None
 chat_document_mapping = {}
+# Embedding model identifier (used for saving/loading indexes safely)
+MODEL_ID = 'sentence-transformers/all-MiniLM-L6-v2'
 # Simple LRU cache for FAISS indexes to reduce disk I/O
 _FAISS_CACHE_MAX = 8
 _faiss_cache: Dict[str, Dict[str, Any]] = {}
@@ -154,7 +156,7 @@ def initialize_models():
         # Initialize sentence transformer with device
         logger.info("Loading sentence transformer model...")
         sentence_transformer = SentenceTransformer(
-            'BAAI/bge-large-en-v1.5',
+            MODEL_ID,
             device=str(device)  # Convert device to string for sentence-transformers
         )
         sentence_transformer = sentence_transformer.to(device)
@@ -617,7 +619,8 @@ def save_index_and_metadata(chat_id: str, index, chunks: List[Dict], filename: s
             'chunks': chunks,
             # Track source filename per chunk for multi-PDF sessions
             'filenames': [filename] * len(chunks),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'embedding_model': MODEL_ID
         }
         
         metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
@@ -644,9 +647,10 @@ def save_index_and_metadata_full(chat_id: str, index, metadata: Dict[str, Any]):
         faiss.write_index(index, tmp_index_path)
         os.replace(tmp_index_path, index_path)
 
-        # Ensure timestamp exists
+        # Ensure timestamp exists and embedding model id is recorded
         metadata = dict(metadata)
         metadata['timestamp'] = datetime.now().isoformat()
+        metadata.setdefault('embedding_model', MODEL_ID)
 
         metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
         tmp_meta_path = metadata_path + ".tmp"
@@ -683,6 +687,14 @@ def load_index_and_metadata(chat_id: str):
         # Load metadata
         with open(metadata_path, 'rb') as f:
             metadata = pickle.load(f)
+
+        # Validate embedding model compatibility to avoid dimension mismatches
+        meta_model = metadata.get('embedding_model')
+        if meta_model and meta_model != MODEL_ID:
+            logger.warning(
+                f"Embedding model mismatch for chat_id={chat_id}: index built with '{meta_model}', current='{MODEL_ID}'. Ignoring stored index."
+            )
+            return None, None
             
         logger.info(f"Loaded index from {index_path} and metadata from {metadata_path}")
         _faiss_cache_put(chat_id, index, metadata)
