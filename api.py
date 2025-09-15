@@ -117,6 +117,8 @@ document_metadata = {}
 chat_model_selection: Dict[str, str] = {}
 # Lightweight in-memory chat history per chat_id
 chat_history: Dict[str, List[Dict[str, str]]] = {}
+# Cap the number of messages kept per chat to avoid unbounded growth
+CHAT_HISTORY_MAX = 30
 
 # Pydantic models
 class ChatRequest(BaseModel):
@@ -285,26 +287,44 @@ def _build_worksheet_prompt(questions: List[Dict[str, Any]], original_text_sampl
     parts = [
         "You are an expert tutor. I will give you parsed questions from an extracted worksheet.",
         "Your job:",
-        "1. Extract each question in order (Q1, Q2, Q3, etc.), including sub-questions (A, B, C...).",
-        "2. Always restate the full question text before giving an answer.",
-        "   - If part of a question is missing or unclear, mark it as [incomplete text] but still try to answer using context.",
-        "3. Provide a clear, step-by-step answer for each question:",
-        "   - Math → show calculations.",
-        "   - Science/History → explain simply and factually.",
-        "   - Opinion/Why → give a sample thoughtful response.",
-        "4. Output format:",
-        "   Q#: [Question text]",
-        "   A#: [Answer]",
-        "5. Do not skip or say ‘no question provided.’ Instead, echo the available text and handle it as best as possible.",
+        "1. **Restate the question clearly** before answering.",
+        "2. **Identify the subject and level** (Math, Science, History, Language, Social Science).",
+        "   - If 10th/12th → give step-by-step, simple explanations.",
+        "   - If college → give advanced, detailed explanations with reasoning.",
+        "3. **Answer style per subject**:",
+        "   - **Math:** Show formulas, derivations, and calculations. Box the final answer.",
+        "   - **Science:** State concepts, show equations/data, and explain reasoning.",
+        "   - **Humanities:** Give context, structured explanation, and say 'Why it matters today'.",
+        "   - **Languages:** Provide translation, grammar corrections, or structured writing.",
+        "   - **Social Sciences:** Explain theories, compare perspectives, add case studies/examples.",
+        "4. **If part of a question is missing**, mark it as `[incomplete text]` but still give the best possible answer.",
+        "5. **Format output strictly as:**",
+        "   Q1: [Question text]",
+        "   A1: [Answer]",
+        "   Q2A: [Sub-question text]",
+        "   A2A: [Answer]",
+        "   (continue for all questions in order)",
+        "6. Use simple markdown formatting:",
+        "   - Headings for sections",
+        "   - Bullet points for steps",
+        "   - Equations with LaTeX if needed",
+        "7. **Optional Enrichment:**",
+        "   - Add 'Why it matters today' after answers when relevant.",
+        "   - Suggest real-world applications or related concepts.",
+        "8. Do not skip or say ‘no question provided.’ Instead, echo the available text and handle it as best as possible.",
         "\nFollow these strictly. Now answer the following questions:"
     ]
+
+    # Append parsed questions
     for q in questions:
         parts.append(f"\n{q['id']}: {q.get('text') or '[incomplete text]'}")
         for sp in (q.get('subparts') or []):
             parts.append(f"{q['id']}{sp['id']}: {sp.get('text') or '[incomplete text]'}")
+
     parts.append("\nUse the exact Q#/A# format.")
     parts.append("If a figure or diagram is referenced but not present, note it explicitly and describe expected content.")
     parts.append("\nOriginal extracted sample (for context, do not retype fully):\n" + sample)
+
     return "\n".join(parts)
 
 async def _answer_worksheet(questions: List[Dict[str, Any]], original_text: str, model_override: Optional[str] = None) -> str:
@@ -595,7 +615,8 @@ def save_index_and_metadata(chat_id: str, index, chunks: List[Dict], filename: s
         # Save metadata
         metadata = {
             'chunks': chunks,
-            'filename': filename,
+            # Track source filename per chunk for multi-PDF sessions
+            'filenames': [filename] * len(chunks),
             'timestamp': datetime.now().isoformat()
         }
         
@@ -611,6 +632,33 @@ def save_index_and_metadata(chat_id: str, index, chunks: List[Dict], filename: s
         return True
     except Exception as e:
         logger.error(f"Error saving index and metadata: {str(e)}")
+        return False
+
+def save_index_and_metadata_full(chat_id: str, index, metadata: Dict[str, Any]):
+    """Save FAISS index and provided metadata atomically to disk and update cache."""
+    try:
+        os.makedirs(FAISS_INDEX_DIR, exist_ok=True)
+
+        index_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_index.faiss")
+        tmp_index_path = index_path + ".tmp"
+        faiss.write_index(index, tmp_index_path)
+        os.replace(tmp_index_path, index_path)
+
+        # Ensure timestamp exists
+        metadata = dict(metadata)
+        metadata['timestamp'] = datetime.now().isoformat()
+
+        metadata_path = os.path.join(FAISS_INDEX_DIR, f"{chat_id}_metadata.pkl")
+        tmp_meta_path = metadata_path + ".tmp"
+        with open(tmp_meta_path, 'wb') as f:
+            pickle.dump(metadata, f)
+        os.replace(tmp_meta_path, metadata_path)
+
+        logger.info(f"Saved index to {index_path} and metadata to {metadata_path}")
+        _faiss_cache_put(chat_id, index, metadata)
+        return True
+    except Exception as e:
+        logger.error(f"Error saving index and metadata (full): {str(e)}")
         return False
 
 def load_index_and_metadata(chat_id: str):
@@ -692,11 +740,17 @@ def retrieve_relevant_chunks(query: str, chat_id: str, top_k: int = 5) -> List[D
         results = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
             if idx < len(metadata['chunks']):
+                # Determine source filename for this chunk
+                fname = None
+                if isinstance(metadata.get('filenames'), list) and idx < len(metadata['filenames']):
+                    fname = metadata['filenames'][idx]
+                else:
+                    fname = metadata.get('filename')
                 results.append({
                     'chunk': metadata['chunks'][idx],
                     'score': float(score),
                     'rank': i + 1,
-                    'filename': metadata['filename']
+                    'filename': fname
                 })
         
         return results
@@ -1648,16 +1702,32 @@ async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(None)):
             )
         
         try:
-            # Save index and metadata
-            logger.info("Saving index and metadata...")
-            # Save the file information
-            save_index_and_metadata(chat_id, index, chunks, safe_filename)
-                
+            logger.info("Saving/appending index and metadata...")
+            # If index/metadata for this chat already exists, append to it
+            existing_index, existing_meta = load_index_and_metadata(chat_id)
+            if existing_index is not None and existing_meta is not None and existing_index.ntotal > 0:
+                logger.info("Existing index found for chat; appending new embeddings")
+                # Ensure embeddings are float32 and normalized before adding
+                emb = np.array(embeddings, dtype=np.float32)
+                faiss.normalize_L2(emb)
+                existing_index.add(emb)
+
+                # Extend metadata
+                merged_meta = dict(existing_meta)
+                merged_meta['chunks'] = (existing_meta.get('chunks') or []) + chunks
+                # Maintain per-chunk filename list
+                existing_fnames = existing_meta.get('filenames') or [existing_meta.get('filename')] * len(existing_meta.get('chunks', []))
+                merged_meta['filenames'] = existing_fnames + [safe_filename] * len(chunks)
+
+                save_index_and_metadata_full(chat_id, existing_index, merged_meta)
+            else:
+                # First document for this chat_id: save fresh index and metadata
+                save_index_and_metadata(chat_id, index, chunks, safe_filename)
+
             # Update chat document mapping
             if chat_id not in chat_document_mapping:
                 chat_document_mapping[chat_id] = []
-            
-            # Add file info to chat document mapping
+
             file_info = {
                 'filename': file.filename,
                 'upload_time': datetime.now().isoformat(),
@@ -1665,18 +1735,17 @@ async def upload_pdf(file: UploadFile = File(...), chat_id: str = Form(None)):
                 'text_length': len(text)
             }
             chat_document_mapping[chat_id].append(file_info)
-                
-            logger.info(f"PDF processing complete. Chat ID: {chat_id}, Chunks: {len(chunks)}")
-                
-            # Return success response with chat_id and file info
+
+            logger.info(f"PDF processing complete. Chat ID: {chat_id}, Chunks added: {len(chunks)}")
+
             return JSONResponse({
-                    "status": "success",
-                    "message": f"PDF '{file.filename}' processed successfully",
-                    "chat_id": chat_id,
-                    "filename": safe_filename,
-                    "chunks_created": len(chunks),
-                    "text_length": len(text)
-                })
+                "status": "success",
+                "message": f"PDF '{file.filename}' processed successfully",
+                "chat_id": chat_id,
+                "filename": safe_filename,
+                "chunks_created": len(chunks),
+                "text_length": len(text)
+            })
                 
         except Exception as e:
             logger.error(f"Error saving index/metadata: {str(e)}")
@@ -1756,16 +1825,20 @@ async def chat_with_pdf(request: ChatRequest):
                 detail="Message cannot be empty"
             )
             
-        # Get and update recent conversation history (store as role/content)
+        # Get and update recent conversation history (store as role/content) with cap
         history = chat_history.get(request.chat_id, [])
         history.append({"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()})
+        if len(history) > CHAT_HISTORY_MAX:
+            history = history[-CHAT_HISTORY_MAX:]
         chat_history[request.chat_id] = history
         
         # Generate response using RAG (with optional per-request model override)
         response = await summarize_with_rag(request.message, request.chat_id, model=request.model, conversation_history=history)
         
-        # Store assistant reply
+        # Store assistant reply and re-cap
         history.append({"role": "assistant", "content": response, "timestamp": datetime.now().isoformat()})
+        if len(history) > CHAT_HISTORY_MAX:
+            history = history[-CHAT_HISTORY_MAX:]
         chat_history[request.chat_id] = history
         
         return {
